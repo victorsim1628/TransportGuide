@@ -1,0 +1,390 @@
+package com.transportguide.app.ui
+
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddLocationAlt
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.transportguide.app.data.Category
+import com.transportguide.app.data.City
+import com.transportguide.app.data.Place
+import com.transportguide.app.data.Suggestion
+import com.transportguide.app.logic.Disruption
+import com.transportguide.app.logic.Geo
+import com.transportguide.app.logic.Mode
+import com.transportguide.app.logic.RouteOption
+import com.transportguide.app.logic.Severity
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TripScreen(vm: TripViewModel = viewModel()) {
+    val ctx = LocalContext.current
+    Scaffold(topBar = { TopAppBar(title = { Text("Transport Guide · Europe 2026") }) }) { pad ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(pad),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item {
+                PlacePicker("From (Originating Point)", vm.from, vm.allPlaces) { vm.setFrom(it) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    IconButton(onClick = vm::swap) { Icon(Icons.Filled.SwapVert, "Swap") }
+                }
+                PlacePicker("To (Destination Point)", vm.to, vm.allPlaces) { vm.setTo(it) }
+            }
+            item { DepartureRow(vm) }
+            item {
+                Button(
+                    onClick = vm::plan, enabled = vm.from != null && vm.to != null && !vm.loading,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) {
+                    if (vm.loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                    else Text("Find best route · check weather & strikes")
+                }
+            }
+            vm.result?.let { r ->
+                item { WeatherCard(r) }
+                item { DisruptionCard(r.disruptions, ctx) }
+                item { SectionTitle("Routes: ${r.from.name} → ${r.to.name}") }
+                r.options.forEach { opt -> item { RouteCard(opt, r.from, r.to, ctx) } }
+                item { SuggestionsCard(r.to, r.curated, r.nearby, ctx) }
+            }
+            item { AddPlaceCard(vm) }
+            if (vm.customPlaces.isNotEmpty()) item { MyPlacesCard(vm) }
+            item {
+                Text(
+                    "Routes © OpenStreetMap contributors (OSRM) · Weather: Open-Meteo · News: Google News · " +
+                        "Landmarks: Wikipedia. Distances are shown in km only. Always confirm strikes with the official notices.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
+                )
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ pickers
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlacePicker(label: String, selected: Place?, places: List<Place>, onPick: (Place) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    var filter by remember { mutableStateOf("") }
+    val shown = places.filter {
+        filter.isBlank() || it.name.contains(filter, true) || it.city.label.contains(filter, true) ||
+            it.category.label.contains(filter, true)
+    }.sortedWith(compareBy<Place>({ it.city.ordinal }, { it.category.ordinal }, { it.name }))
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = if (expanded) filter else selected?.let { "${icon(it.category)} ${it.display}" } ?: "",
+            onValueChange = { filter = it; expanded = true },
+            label = { Text(label) },
+            placeholder = { Text("Tap to choose, or type to filter") },
+            singleLine = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false; filter = "" }) {
+            var lastCity: City? = null
+            shown.forEach { p ->
+                if (p.city != lastCity) {
+                    lastCity = p.city
+                    Text(
+                        p.city.label.uppercase(), style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 16.dp, top = 10.dp, bottom = 2.dp),
+                    )
+                }
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text("${icon(p.category)} ${p.name}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            val sub = p.note.ifBlank { p.address }
+                            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    },
+                    onClick = { onPick(p); expanded = false; filter = "" },
+                )
+            }
+        }
+    }
+}
+
+private fun icon(c: Category) = when (c) {
+    Category.HOTEL -> "🏨"; Category.STATION -> "🚉"; Category.AIRPORT -> "✈️"
+    Category.ATTRACTION -> "🏛️"; Category.TRANSIT -> "🚏"; Category.CUSTOM -> "📍"
+}
+
+@Composable
+private fun DepartureRow(vm: TripViewModel) {
+    val ctx = LocalContext.current
+    val t = vm.departure
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(Icons.Filled.Schedule, null)
+        Text(t.format(DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.UK)), fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = { vm.setDeparture(java.time.LocalDateTime.now().plusMinutes(15)) }) { Text("Now") }
+        OutlinedButton(onClick = {
+            DatePickerDialog(ctx, { _, y, m, d ->
+                TimePickerDialog(ctx, { _, h, min ->
+                    vm.setDeparture(java.time.LocalDateTime.of(y, m + 1, d, h, min))
+                }, t.hour, t.minute, true).show()
+            }, t.year, t.monthValue - 1, t.dayOfMonth).show()
+        }) { Text("Change") }
+    }
+}
+
+// ------------------------------------------------------------------ results
+
+@Composable
+private fun SectionTitle(s: String) =
+    Text(s, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+@Composable
+private fun WeatherCard(r: TripResult) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SectionTitle("Weather & advice · ${r.from.city.label}")
+            val w = r.weather
+            if (w == null) Text(r.weatherMissingReason ?: "No forecast.")
+            else {
+                Text("${w.timeLabel} — ${w.description}, ${w.temperatureC.toInt()}°C (feels ${w.apparentC.toInt()}°C)")
+                Text("Rain ${w.precipProbability}% · ${"%.1f".format(w.precipitationMm)} mm · wind ${w.windKmh.toInt()} km/h",
+                    style = MaterialTheme.typography.bodySmall)
+                r.weatherAdvice.forEach { Text(it) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DisruptionCard(byCity: Map<City, List<Disruption>>, ctx: Context) {
+    val anyWarn = byCity.values.flatten().any { it.severity == Severity.WARNING }
+    Card(colors = CardDefaults.cardColors(
+        containerColor = if (anyWarn) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SectionTitle("Strikes & protests (last 14 days of news)")
+            byCity.forEach { (city, list) ->
+                Text(city.label, fontWeight = FontWeight.SemiBold)
+                if (list.isEmpty()) Text("✅ No strike or protest news found affecting transport.", style = MaterialTheme.typography.bodySmall)
+                list.take(6).forEach { d ->
+                    val badge = when { d.mentionsTripDate -> "🔴 ON YOUR DATES"; d.severity == Severity.WARNING -> "🟠 Strike"; else -> "🟡 Watch" }
+                    Column(Modifier.padding(vertical = 2.dp)) {
+                        TextButton(onClick = { open(ctx, d.link) }, contentPadding = PaddingValues(0.dp)) {
+                            Text("$badge  ${d.title}", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Text(
+                            "${d.source} · ${ago(d.publishedMillis)} · affects ${d.modes.joinToString { it.label }}",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (city.country == "IT") AssistChip(onClick = { open(ctx, "https://scioperi.mit.gov.it/mit2/public/scioperi") },
+                        label = { Text("Official IT strike calendar") })
+                    if (city.country == "DE") AssistChip(onClick = { open(ctx, "https://www.bahn.de/service/fahrplaene/aktuell") },
+                        label = { Text("DB service alerts") })
+                    if (city == City.VENICE) AssistChip(onClick = { open(ctx, "https://actv.avmspa.it/en/content/news") },
+                        label = { Text("ACTV news") })
+                }
+                HorizontalDivider()
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouteCard(o: RouteOption, from: Place, to: Place, ctx: Context) {
+    val colors = when {
+        o.best -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        !o.available -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        else -> CardDefaults.cardColors()
+    }
+    Card(colors = colors, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("${o.mode.emoji}  ${o.mode.label}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                if (o.best) Text("★ BEST", color = MaterialTheme.colorScheme.tertiary, fontWeight = FontWeight.Bold)
+                if (!o.available) Text("Not suitable", color = MaterialTheme.colorScheme.outline)
+            }
+            if (o.available) Text(
+                "${Geo.km(o.km)} · about ${Geo.minutes(o.minutes)}" + if (o.isEstimate) " (estimate)" else "",
+                style = MaterialTheme.typography.titleLarge,
+            )
+            o.notes.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+            o.warnings.forEach { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+            if (o.available) TextButton(onClick = { openMaps(ctx, from, to, o.mode) }, contentPadding = PaddingValues(0.dp)) {
+                Text("Open step-by-step directions in Google Maps")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionsCard(to: Place, curated: List<Suggestion>, nearby: List<Suggestion>, ctx: Context) {
+    Card {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SectionTitle("While you're at ${to.name}…")
+            if (curated.isNotEmpty()) {
+                Text("Worth considering in ${to.city.label}", fontWeight = FontWeight.SemiBold)
+                curated.forEach { s -> SuggestionRow(s, ctx) }
+            }
+            if (nearby.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text("Landmarks within 1.5 km (Wikipedia)", fontWeight = FontWeight.SemiBold)
+                nearby.forEach { s -> SuggestionRow(s, ctx) }
+            }
+            if (curated.isEmpty() && nearby.isEmpty()) Text("No suggestions found nearby.")
+        }
+    }
+}
+
+@Composable
+private fun SuggestionRow(s: Suggestion, ctx: Context) {
+    TextButton(
+        onClick = { open(ctx, s.url ?: "https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}") },
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Text("🏛️ ${s.title}" + (s.distanceKm?.let { " · ${Geo.km(it)}" } ?: ""), fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface)
+            Text(s.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        }
+    }
+}
+
+// ------------------------------------------------------------- new places
+
+@Composable
+private fun AddPlaceCard(vm: TripViewModel) {
+    var query by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.AddLocationAlt, null); Spacer(Modifier.width(8.dp)); SectionTitle("Add a new place")
+            }
+            OutlinedTextField(
+                value = query, onValueChange = { query = it }, singleLine = true,
+                label = { Text("Name or address (e.g. Galleria Borghese Rome)") },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { vm.search(query) }),
+                trailingIcon = { IconButton(onClick = { vm.search(query) }) { Icon(Icons.Filled.Search, "Search") } },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = name, onValueChange = { name = it }, singleLine = true,
+                label = { Text("Save as (optional nickname)") }, modifier = Modifier.fillMaxWidth(),
+            )
+            if (vm.searching) CircularProgressIndicator(Modifier.size(22.dp))
+            vm.searchMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            vm.searchResults.forEach { r ->
+                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text(r.name, fontWeight = FontWeight.SemiBold)
+                    Text(r.address, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { vm.saveSearchResult(r, name, false); query = ""; name = "" }) { Text("Save & use as From") }
+                        Button(onClick = { vm.saveSearchResult(r, name, true); query = ""; name = "" }) { Text("as To") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MyPlacesCard(vm: TripViewModel) {
+    Card {
+        Column(Modifier.padding(16.dp)) {
+            SectionTitle("My places")
+            vm.customPlaces.forEach { p ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { Text("📍 ${p.display}") }
+                    IconButton(onClick = { vm.deleteCustom(p) }) { Icon(Icons.Filled.Delete, "Delete", tint = Color.Gray) }
+                }
+            }
+        }
+    }
+}
+
+// ------------------------------------------------------------------ helpers
+
+private fun open(ctx: Context, url: String) {
+    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
+private fun openMaps(ctx: Context, from: Place, to: Place, mode: Mode) {
+    val travel = when (mode) { Mode.WALK -> "walking"; Mode.TAXI -> "driving"; else -> "transit" }
+    open(ctx, "https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lon}" +
+        "&destination=${to.lat},${to.lon}&travelmode=$travel")
+}
+
+private fun ago(ms: Long): String {
+    if (ms <= 0) return "date unknown"
+    val hours = (System.currentTimeMillis() - ms) / 3_600_000
+    return when {
+        hours < 1 -> "just now"
+        hours < 24 -> "$hours h ago"
+        else -> Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM", Locale.UK))
+    }
+}
