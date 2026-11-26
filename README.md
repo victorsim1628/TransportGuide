@@ -14,7 +14,7 @@ stations, airports and attractions come from `Hotel_Flight_Attraction_v2.xlsx`.
 | **(d) Strikes & protests** in Rome, Florence, Venice, Milan, Frankfurt | Searches news in Italian or German and English (last 14 days) for strikes (*sciopero*, *Streik*) and marches (*corteo*, *Demo*). Each headline is tagged with the modes it affects. Headlines that mention a date you're in that city get 🔴 **ON YOUR DATES**. Matching modes are penalised in the ranking. Buttons link to the official Italian strike calendar (MIT), DB service alerts and ACTV news. |
 | **(e) Dropdowns, no typing** | *From* and *To* are dropdowns grouped by city: 🏨 hotels, 🚉 stations, ✈️ airports, 🏛️ attractions, with booking notes such as times and PNRs. You can type to filter. |
 | **(f) Box for new places** | *Add a new place*: type a name or address, or paste `lat, lon`, then save it as *From* or *To*. Saved places appear in the dropdowns under 📍 *My places* and can be deleted. |
-| **(g) Suggestions at the destination** | Hand-picked sights for each city, plus live Wikipedia landmarks within 1.5 km of the destination, each with its distance in km. |
+| **(g) Suggestions at the destination** | Hand-picked sights for each city, plus live Wikipedia landmarks within 1.5 km of the destination, each with its distance in km. Tapping one opens Google Maps directions from the Destination Point to it (walking up to 2 km, public transport beyond); the ⓘ icon opens its Wikipedia article. |
 
 Booked trains (Frecciarossa 8508, 9414, 9728, Regionali to Pisa, EC 150) are recognised: choosing
 e.g. *Roma Termini → Firenze S. M. Novella* shows the train, time, coach, seats and PNR.

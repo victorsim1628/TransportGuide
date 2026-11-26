@@ -23,6 +23,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.DirectionsTransit
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.AddLocationAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.EditCalendar
@@ -74,6 +77,7 @@ import com.transportguide.app.data.Place
 import com.transportguide.app.data.Suggestion
 import com.transportguide.app.logic.Disruption
 import com.transportguide.app.logic.Geo
+import com.transportguide.app.logic.MapsLinks
 import com.transportguide.app.logic.Mode
 import com.transportguide.app.logic.RouteOption
 import com.transportguide.app.logic.Severity
@@ -348,14 +352,16 @@ private fun SuggestionsCard(to: Place, curated: List<Suggestion>, nearby: List<S
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             SectionTitle("While you're at ${to.name}…")
+            Text("Tap a place for Google Maps directions from ${to.name}.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             if (curated.isNotEmpty()) {
                 Text("Worth considering in ${to.city.label}", fontWeight = FontWeight.SemiBold)
-                curated.forEach { s -> SuggestionRow(s, ctx) }
+                curated.forEach { s -> SuggestionRow(s, to, ctx) }
             }
             if (nearby.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
                 Text("Landmarks within 1.5 km (Wikipedia)", fontWeight = FontWeight.SemiBold)
-                nearby.forEach { s -> SuggestionRow(s, ctx) }
+                nearby.forEach { s -> SuggestionRow(s, to, ctx) }
             }
             if (curated.isEmpty() && nearby.isEmpty()) Text("No suggestions found nearby.")
         }
@@ -363,17 +369,30 @@ private fun SuggestionsCard(to: Place, curated: List<Suggestion>, nearby: List<S
 }
 
 @Composable
-private fun SuggestionRow(s: Suggestion, ctx: Context) {
-    // A plain clickable row: a pill-shaped TextButton clipped the first and last letters.
-    Column(
+private fun SuggestionRow(s: Suggestion, from: Place, ctx: Context) {
+    val walk = (s.distanceKm ?: Geo.haversineKm(from.lat, from.lon, s.lat, s.lon)) <= MapsLinks.WALK_LIMIT_KM
+    // Plain clickable row (a pill-shaped TextButton clipped letters). Tap = directions from the Destination Point.
+    Row(
         Modifier.fillMaxWidth()
-            .clickable { open(ctx, s.url ?: "https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}") }
+            .clickable { open(ctx, MapsLinks.toSuggestion(from.lat, from.lon, s.lat, s.lon)) }
             .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        run {
+        Column(Modifier.weight(1f)) {
             Text("🏛️ ${s.title}" + (s.distanceKm?.let { " · ${Geo.km(it)}" } ?: ""), fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface)
             Text(s.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+        }
+        Icon(
+            if (walk) Icons.AutoMirrored.Filled.DirectionsWalk else Icons.Filled.DirectionsTransit,
+            contentDescription = if (walk) "Walking directions" else "Public transport directions",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 8.dp).size(22.dp),
+        )
+        s.url?.let { url ->
+            IconButton(onClick = { open(ctx, url) }) {
+                Icon(Icons.Outlined.Info, "Read about it on Wikipedia", tint = MaterialTheme.colorScheme.outline)
+            }
         }
     }
 }
@@ -439,9 +458,7 @@ private fun open(ctx: Context, url: String) {
 }
 
 private fun openMaps(ctx: Context, from: Place, to: Place, mode: Mode) {
-    val travel = when (mode) { Mode.WALK -> "walking"; Mode.TAXI -> "driving"; else -> "transit" }
-    open(ctx, "https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lon}" +
-        "&destination=${to.lat},${to.lon}&travelmode=$travel")
+    open(ctx, MapsLinks.directions(from.lat, from.lon, to.lat, to.lon, MapsLinks.modeFor(mode)))
 }
 
 private fun ago(ms: Long): String {

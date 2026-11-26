@@ -12,8 +12,8 @@ android {
         applicationId = "com.transportguide.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
     }
 
     // A fixed debug key (standard "android" passwords, not a secret) so every build, here or on

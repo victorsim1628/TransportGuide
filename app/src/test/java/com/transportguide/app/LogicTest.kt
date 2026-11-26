@@ -190,4 +190,17 @@ class LogicTest {
         assertTrue(w2.timeLabel.contains("09:00"))
         assertTrue(w2.timeLabel.contains("local time there"))
     }
+
+    @Test fun suggestionOpensDirectionsFromDestination() {
+        val pantheon = p("x_pantheon")
+        val navona = com.transportguide.app.logic.MapsLinks.toSuggestion(pantheon.lat, pantheon.lon, 41.8992, 12.4731)
+        assertEquals("https://www.google.com/maps/dir/?api=1&origin=41.898600,12.476900" +
+            "&destination=41.899200,12.473100&travelmode=walking", navona)
+        // St Peter's is 1.9 km from the Pantheon (walk) but about 3.3 km from the Colosseum (public transport).
+        assertTrue(com.transportguide.app.logic.MapsLinks.toSuggestion(pantheon.lat, pantheon.lon, 41.9022, 12.4539)
+            .endsWith("&travelmode=walking"))
+        val colosseum = p("x_colosseum")
+        assertTrue(com.transportguide.app.logic.MapsLinks.toSuggestion(colosseum.lat, colosseum.lon, 41.9022, 12.4539)
+            .endsWith("&travelmode=transit"))
+    }
 }
