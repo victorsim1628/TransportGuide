@@ -12,8 +12,8 @@ android {
         applicationId = "com.transportguide.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
     }
 
     // A fixed debug key (standard "android" passwords, not a secret) so every build, here or on
@@ -52,6 +52,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    implementation("com.google.mlkit:translate:17.0.3")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

@@ -18,6 +18,7 @@ import com.transportguide.app.logic.RouteOption
 import com.transportguide.app.logic.WeatherAdvice
 import com.transportguide.app.logic.WeatherAtTrip
 import com.transportguide.app.net.Api
+import com.transportguide.app.net.Translator
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -99,7 +100,11 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
             val nearby = async { Api.nearbyLandmarks(t.lat, t.lon) }
 
             val w = weather.await()
-            val disruptions = news.mapValues { it.value.await() }
+            // Headlines shown or used in warnings are translated to British English on the phone.
+            val disruptions = news.mapValues { (_, d) ->
+                val list = d.await()
+                Translator.translate(list.take(10)) + list.drop(10)
+            }
             val walkRoute = walk.await()
             val options = Planner.plan(f, t, walkRoute, car.await(), w, disruptions.values.flatten())
             val walkKm = options.firstOrNull { it.mode == com.transportguide.app.logic.Mode.WALK }?.km

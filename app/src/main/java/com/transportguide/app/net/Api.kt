@@ -119,7 +119,7 @@ object Api {
                     val (hl, gl) = when (lang) { "it" -> "it" to "IT"; "de" -> "de" to "DE"; else -> "en-GB" to "GB" }
                     val url = "https://news.google.com/rss/search?q=${enc("$q when:${sinceDays}d")}" +
                         "&hl=$hl&gl=$gl&ceid=$gl:${hl.substringBefore('-')}"
-                    parseNewsRss(get(url), city, DisruptionClassifier.tripDates(city))
+                    parseNewsRss(get(url), city, DisruptionClassifier.tripDates(city), lang)
                 }.getOrDefault(emptyList())
             }
         }.awaitAll().flatten()
@@ -129,7 +129,7 @@ object Api {
                 .thenByDescending { it.publishedMillis })
     }
 
-    fun parseNewsRss(xml: String, city: City, tripDates: List<Pair<Int, Int>>): List<Disruption> {
+    fun parseNewsRss(xml: String, city: City, tripDates: List<Pair<Int, Int>>, lang: String = "en"): List<Disruption> {
         val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder()
             .parse(xml.byteInputStream(Charsets.UTF_8))
         val items = doc.getElementsByTagName("item")
@@ -147,7 +147,7 @@ object Api {
                 ZonedDateTime.parse(tag("pubDate"), DateTimeFormatter.RFC_1123_DATE_TIME).toInstant().toEpochMilli()
             }.getOrDefault(0L)
             out += Disruption(title, source, tag("link"), published, modes, sev,
-                DisruptionClassifier.mentionsAnyDate(title, tripDates))
+                DisruptionClassifier.mentionsAnyDate(title, tripDates), lang)
         }
         return out
     }

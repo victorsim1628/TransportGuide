@@ -75,6 +75,10 @@ object DisruptionClassifier {
             if (city == City.VENICE) modes += Mode.WATER_TAXI
         }
 
+        // Water transport exists only in Venice; never show it for other cities.
+        if (city != City.VENICE) modes.remove(Mode.WATER_TAXI)
+        if (modes.isEmpty()) return modes to Severity.INFO
+
         val severity = when {
             isStrike && modes.isNotEmpty() -> Severity.WARNING
             isProtest -> Severity.WATCH

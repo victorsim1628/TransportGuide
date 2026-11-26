@@ -5,6 +5,7 @@ import android.app.TimePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,7 +49,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -285,9 +286,12 @@ private fun DisruptionCard(byCity: Map<City, List<Disruption>>, ctx: Context) {
                 if (list.isEmpty()) Text("✅ No strike or protest news found affecting transport.", style = MaterialTheme.typography.bodySmall)
                 list.take(6).forEach { d ->
                     val badge = when { d.mentionsTripDate -> "🔴 ON YOUR DATES"; d.severity == Severity.WARNING -> "🟠 Strike"; else -> "🟡 Watch" }
-                    Column(Modifier.padding(vertical = 2.dp)) {
-                        TextButton(onClick = { open(ctx, d.link) }, contentPadding = PaddingValues(0.dp)) {
-                            Text("$badge  ${d.title}", style = MaterialTheme.typography.bodyMedium)
+                    Column(Modifier.fillMaxWidth().clickable { open(ctx, d.link) }.padding(vertical = 4.dp)) {
+                        Text("$badge  ${d.title}", style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary)
+                        d.originalTitle?.let {
+                            Text("Original: $it", style = MaterialTheme.typography.bodySmall,
+                                fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.outline)
                         }
                         Text(
                             "${d.source} · ${ago(d.publishedMillis)} · affects ${d.modes.joinToString { it.label }}",
@@ -330,9 +334,11 @@ private fun RouteCard(o: RouteOption, from: Place, to: Place, ctx: Context) {
             )
             o.notes.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
             o.warnings.forEach { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            if (o.available) TextButton(onClick = { openMaps(ctx, from, to, o.mode) }, contentPadding = PaddingValues(0.dp)) {
-                Text("Open step-by-step directions in Google Maps")
-            }
+            if (o.available) Text(
+                "Open step-by-step directions in Google Maps",
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium,
+                modifier = Modifier.fillMaxWidth().clickable { openMaps(ctx, from, to, o.mode) }.padding(vertical = 8.dp),
+            )
         }
     }
 }
@@ -358,11 +364,13 @@ private fun SuggestionsCard(to: Place, curated: List<Suggestion>, nearby: List<S
 
 @Composable
 private fun SuggestionRow(s: Suggestion, ctx: Context) {
-    TextButton(
-        onClick = { open(ctx, s.url ?: "https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}") },
-        contentPadding = PaddingValues(0.dp),
+    // A plain clickable row: a pill-shaped TextButton clipped the first and last letters.
+    Column(
+        Modifier.fillMaxWidth()
+            .clickable { open(ctx, s.url ?: "https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lon}") }
+            .padding(vertical = 6.dp),
     ) {
-        Column(Modifier.fillMaxWidth()) {
+        run {
             Text("🏛️ ${s.title}" + (s.distanceKm?.let { " · ${Geo.km(it)}" } ?: ""), fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface)
             Text(s.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)

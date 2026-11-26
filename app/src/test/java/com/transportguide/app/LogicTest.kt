@@ -54,7 +54,25 @@ class LogicTest {
         val car = RoadRoute(2.4, 8, 10.0, 10.0)
         val opts = Planner.plan(p("h_rome"), p("x_colosseum"), walk, car, dry, emptyList())
         assertEquals(Mode.WALK, opts.first { it.best }.mode)
-        assertFalse(opts.first { it.mode == Mode.WATER_TAXI }.available)
+        assertTrue("water option hidden outside Venice", opts.none { it.mode == Mode.WATER_TAXI })
+    }
+
+    @Test fun waterOptionShownOnlyForVeniceTrips() {
+        val dry2 = dry
+        assertTrue(Planner.plan(p("h_milan"), p("x_last_supper"), null, null, dry2, emptyList()).none { it.mode == Mode.WATER_TAXI })
+        assertTrue(Planner.plan(p("h_frankfurt"), p("x_romerberg"), null, null, dry2, emptyList()).none { it.mode == Mode.WATER_TAXI })
+        assertTrue(Planner.plan(p("h_venice"), p("x_rialto"), null, null, dry2, emptyList()).any { it.mode == Mode.WATER_TAXI })
+        // A general strike in Milan must not mention water transport.
+        val (m, _) = DisruptionClassifier.classify("Sciopero generale, stop a vaporetti e traghetti", City.MILAN)
+        assertFalse(Mode.WATER_TAXI in m)
+    }
+
+    @Test fun britishSpellingAfterTranslation() {
+        assertEquals("Strike cancelled in the city centre; organised by the labour unions",
+            com.transportguide.app.logic.BritishEnglish.convert("Strike canceled in the city center; organized by the labor unions"))
+        assertEquals("Metro closed: Travellers' Favourite Theatre",
+            com.transportguide.app.logic.BritishEnglish.convert("Subway closed: Travelers' Favorite Theater"))
+        assertEquals("Concentration remains", com.transportguide.app.logic.BritishEnglish.convert("Concentration remains"))
     }
 
     @Test fun rainPushesAwayFromWalking() {

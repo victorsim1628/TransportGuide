@@ -8,7 +8,7 @@ stations, airports and attractions come from `Hotel_Flight_Attraction_v2.xlsx`.
 
 | Requirement | How the app does it |
 |---|---|
-| **(a) Best route** by walking, train, taxi or water-taxi | Builds all four options, scores them on time, weather, luggage and disruptions, and marks one **★ BEST**. Unsuitable modes are greyed out with the reason (e.g. no road taxis to St Mark's, water-taxi only in the Venice lagoon). |
+| **(a) Best route** by walking, train, taxi or water-taxi (the water option only appears for trips starting or ending in Venice) | Builds all four options, scores them on time, weather, luggage and disruptions, and marks one **★ BEST**. Unsuitable modes are greyed out with the reason (e.g. no road taxis to St Mark's, water-taxi only in the Venice lagoon). |
 | **(b) Distance in km only** | Every distance goes through `Geo.km()`, so the app never shows metres or miles. Walking and taxi distances are real street routes (OpenStreetMap / OSRM). Booked train legs use the rail km from the spreadsheet. |
 | **(c) Weather & advice before every trip** | Each "Find best route" fetches the Open-Meteo forecast for the departure hour and gives advice on umbrellas, coats, wind on the lagoon, fog and darkness. Rain and cold also count against walking. |
 | **(d) Strikes & protests** in Rome, Florence, Venice, Milan, Frankfurt | Searches news in Italian or German and English (last 14 days) for strikes (*sciopero*, *Streik*) and marches (*corteo*, *Demo*). Each headline is tagged with the modes it affects. Headlines that mention a date you're in that city get 🔴 **ON YOUR DATES**. Matching modes are penalised in the ranking. Buttons link to the official Italian strike calendar (MIT), DB service alerts and ACTV news. |
@@ -30,6 +30,7 @@ Each option has *Open step-by-step directions in Google Maps*, for live transit 
 | Strikes & protests | `news.google.com` RSS search |
 | New-place search | `nominatim.openstreetmap.org` |
 | Nearby landmarks | `en.wikipedia.org` geosearch |
+| Italian / German headlines → British English | Google ML Kit on-device translation (language packs download once, ~30 MB each, then work offline) |
 
 Strike detection reads news headlines, so it can miss things or raise false alarms. Before travel
 days, always check the official notices the app links to.

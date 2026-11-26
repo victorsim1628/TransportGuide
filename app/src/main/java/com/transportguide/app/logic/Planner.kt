@@ -29,11 +29,13 @@ object Planner {
         val bothInLagoon = Geo.inVeniceLagoon(from.lat, from.lon) && Geo.inVeniceLagoon(to.lat, to.lon)
         val active = disruptions.filter { it.severity != Severity.INFO }
 
-        val options = listOf(
+        val veniceTrip = from.city == City.VENICE || to.city == City.VENICE || bothInLagoon
+        val options = listOfNotNull(
             walkOption(straight, walk, weather, luggage, active),
             trainOption(from, to, straight, car, bothInLagoon, luggage, active),
             taxiOption(from, to, straight, car, bothInLagoon, luggage, active),
-            waterOption(from, to, straight, bothInLagoon, weather, active),
+            // Water-taxi / vaporetto is hidden completely outside Venice.
+            if (veniceTrip) waterOption(from, to, straight, bothInLagoon, weather, active) else null,
         )
         val best = options.filter { it.available }.minByOrNull { it.score }
         return options

@@ -55,6 +55,10 @@ data class Disruption(
     val severity: Severity,
     /** True when the headline mentions one of the trip dates for that city. */
     val mentionsTripDate: Boolean,
+    /** Language of the headline: "it", "de" or "en". */
+    val lang: String = "en",
+    /** The headline as published, kept when [title] has been translated. */
+    val originalTitle: String? = null,
 )
 
 data class RouteOption(
