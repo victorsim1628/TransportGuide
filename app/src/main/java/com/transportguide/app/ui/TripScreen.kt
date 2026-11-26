@@ -84,11 +84,11 @@ fun TripScreen(vm: TripViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                PlacePicker("From (Originating Point)", vm.from, vm.allPlaces) { vm.setFrom(it) }
+                PlacePicker("From (Originating Point)", vm.from, vm.allPlaces) { vm.chooseFrom(it) }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                     IconButton(onClick = vm::swap) { Icon(Icons.Filled.SwapVert, "Swap") }
                 }
-                PlacePicker("To (Destination Point)", vm.to, vm.allPlaces) { vm.setTo(it) }
+                PlacePicker("To (Destination Point)", vm.to, vm.allPlaces) { vm.chooseTo(it) }
             }
             item { DepartureRow(vm) }
             item {
@@ -182,11 +182,11 @@ private fun DepartureRow(vm: TripViewModel) {
         Icon(Icons.Filled.Schedule, null)
         Text(t.format(DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.UK)), fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.weight(1f))
-        TextButton(onClick = { vm.setDeparture(java.time.LocalDateTime.now().plusMinutes(15)) }) { Text("Now") }
+        TextButton(onClick = { vm.chooseDeparture(java.time.LocalDateTime.now().plusMinutes(15)) }) { Text("Now") }
         OutlinedButton(onClick = {
             DatePickerDialog(ctx, { _, y, m, d ->
                 TimePickerDialog(ctx, { _, h, min ->
-                    vm.setDeparture(java.time.LocalDateTime.of(y, m + 1, d, h, min))
+                    vm.chooseDeparture(java.time.LocalDateTime.of(y, m + 1, d, h, min))
                 }, t.hour, t.minute, true).show()
             }, t.year, t.monthValue - 1, t.dayOfMonth).show()
         }) { Text("Change") }

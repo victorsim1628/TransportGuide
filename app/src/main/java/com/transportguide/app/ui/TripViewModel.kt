@@ -51,10 +51,10 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
     var searching by mutableStateOf(false); private set
     var searchMessage by mutableStateOf<String?>(null); private set
 
-    fun setFrom(p: Place) { from = p; result = null }
-    fun setTo(p: Place) { to = p; result = null }
+    fun chooseFrom(p: Place) { from = p; result = null }
+    fun chooseTo(p: Place) { to = p; result = null }
     fun swap() { val f = from; from = to; to = f; result = null }
-    fun setDeparture(t: LocalDateTime) { departure = t; result = null }
+    fun chooseDeparture(t: LocalDateTime) { departure = t; result = null }
 
     fun plan() {
         val f = from ?: return
@@ -115,7 +115,7 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
     fun saveSearchResult(r: Api.GeoResult, customName: String, asDestination: Boolean) {
         val p = store.add(customName.ifBlank { r.name }, r.lat, r.lon, r.address)
         customPlaces = store.load()
-        if (asDestination) setTo(p) else setFrom(p)
+        if (asDestination) chooseTo(p) else chooseFrom(p)
         searchResults = emptyList()
         searchMessage = "Saved \"${p.name}\" to My places."
     }
