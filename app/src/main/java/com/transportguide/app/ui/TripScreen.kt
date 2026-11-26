@@ -75,14 +75,12 @@ import com.transportguide.app.data.Category
 import com.transportguide.app.data.City
 import com.transportguide.app.data.Place
 import com.transportguide.app.data.Suggestion
-import com.transportguide.app.logic.Disruption
+import com.transportguide.app.logic.DisruptionGroup
 import com.transportguide.app.logic.Geo
 import com.transportguide.app.logic.MapsLinks
 import com.transportguide.app.logic.Mode
 import com.transportguide.app.logic.RouteOption
 import com.transportguide.app.logic.Severity
-import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -279,27 +277,38 @@ private fun WeatherCard(r: TripResult) {
 }
 
 @Composable
-private fun DisruptionCard(byCity: Map<City, List<Disruption>>, ctx: Context) {
+private fun DisruptionCard(byCity: Map<City, List<DisruptionGroup>>, ctx: Context) {
     val anyWarn = byCity.values.flatten().any { it.severity == Severity.WARNING }
+    val dayFmt = DateTimeFormatter.ofPattern("EEE d MMM", Locale.UK)
     Card(colors = CardDefaults.cardColors(
         containerColor = if (anyWarn) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            SectionTitle("Strikes & protests (last 14 days of news)")
-            byCity.forEach { (city, list) ->
+            SectionTitle("Strikes & protests")
+            Text("One line per day, from the two most reliable sources (news of the last 14 days).",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            byCity.forEach { (city, groups) ->
                 Text(city.label, fontWeight = FontWeight.SemiBold)
-                if (list.isEmpty()) Text("✅ No strike or protest news found affecting transport.", style = MaterialTheme.typography.bodySmall)
-                list.take(6).forEach { d ->
-                    val badge = when { d.mentionsTripDate -> "🔴 ON YOUR DATES"; d.severity == Severity.WARNING -> "🟠 Strike"; else -> "🟡 Watch" }
-                    Column(Modifier.fillMaxWidth().clickable { open(ctx, d.link) }.padding(vertical = 4.dp)) {
-                        Text("$badge  ${d.title}", style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary)
-                        d.originalTitle?.let {
-                            Text("Original: $it", style = MaterialTheme.typography.bodySmall,
-                                fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.outline)
+                if (groups.isEmpty()) Text("✅ No upcoming strike or protest news affecting transport.", style = MaterialTheme.typography.bodySmall)
+                groups.forEach { g ->
+                    val badge = when { g.mentionsTripDate -> "🔴 ON YOUR DATES"; g.severity == Severity.WARNING -> "🟠 Strike"; else -> "🟡 Watch" }
+                    val day = g.eventDate?.format(dayFmt) ?: g.reportedDate?.let { "Reported ${it.format(dayFmt)}" } ?: "Date unknown"
+                    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text("$badge · $day", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        Text(g.headline.title, style = MaterialTheme.typography.bodyMedium)
+                        Text("Affects: ${g.modes.joinToString { it.label }}",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            g.sources.forEach { src ->
+                                Text("${src.source.ifBlank { "Source" }} ↗",
+                                    style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable { open(ctx, src.link) }.padding(vertical = 4.dp))
+                            }
                         }
-                        Text(
-                            "${d.source} · ${ago(d.publishedMillis)} · affects ${d.modes.joinToString { it.label }}",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
+                        if (g.reportCount > g.sources.size) Text(
+                            "+${g.reportCount - g.sources.size} similar reports merged",
+                            style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.outline,
                         )
                     }
                 }
@@ -465,14 +474,4 @@ private fun open(ctx: Context, url: String) {
 
 private fun openMaps(ctx: Context, from: Place, to: Place, mode: Mode) {
     open(ctx, MapsLinks.directions(from.lat, from.lon, to.lat, to.lon, MapsLinks.modeFor(mode), from.mapsQuery(), to.mapsQuery()))
-}
-
-private fun ago(ms: Long): String {
-    if (ms <= 0) return "date unknown"
-    val hours = (System.currentTimeMillis() - ms) / 3_600_000
-    return when {
-        hours < 1 -> "just now"
-        hours < 24 -> "$hours h ago"
-        else -> Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM", Locale.UK))
-    }
 }

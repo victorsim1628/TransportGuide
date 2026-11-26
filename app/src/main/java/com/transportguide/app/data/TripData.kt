@@ -61,7 +61,7 @@ object TripData {
             "Piazza del Colosseo, Rome", "Mon 30 Nov 12:00 · Booking OCO5098278",
             mapsName = "Colosseum, Rome"),
         Place("x_pantheon", "Pantheon", City.ROME, Category.ATTRACTION, 41.89860, 12.47690,
-            "Piazza della Rotonda, Rome", "Tue 1 Dec · not booked yet"),
+            "Piazza della Rotonda, Rome", "Tue 1 Dec · 10:00–11:00 · 4 tickets bought (€7.00 each) · show QR codes at entrance"),
         Place("x_trevi", "Trevi Fountain", City.ROME, Category.ATTRACTION, 41.90090, 12.48330,
             "Piazza di Trevi, Rome", "Tue 1 Dec · no ticket needed"),
         Place("x_duomo_fi", "Duomo & Brunelleschi's Dome", City.FLORENCE, Category.ATTRACTION, 43.77310, 11.25600,

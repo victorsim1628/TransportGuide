@@ -225,4 +225,37 @@ class LogicTest {
         TripData.places.forEach { assertNotNull(it.name, it.mapsQuery()) }
         City.entries.forEach { c -> TripData.curatedFor(c).forEach { assertNotNull(it.mapsName) } }
     }
+    @Test fun strikeNewsCollapsedToOneLinePerDayWithTwoBestSources() {
+        val today = java.time.LocalDate.of(2026, 11, 26)
+        fun d(title: String, src: String, daysAgo: Long = 1) = Disruption(title, src, "https://x/$src", 
+            today.minusDays(daysAgo).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli(),
+            setOf(Mode.TRAIN), Severity.WARNING, false)
+        val items = listOf(
+            d("Sciopero generale del 4 dicembre, si fermano i mezzi pubblici", "FirenzeToday"),
+            d("Sciopero 4 dicembre, stop treni e mezzi pubblici: gli orari", "ANSA"),
+            d("Venerdì 4 dicembre sciopero dei trasporti", "Blog Qualsiasi"),
+            d("Sciopero del 4/12: cosa sapere", "Corriere della Sera"),
+            d("Sciopero dei treni il 20 novembre", "ANSA", 10),            // already over
+            d("Tramvia, servizio ridotto per lavori", "La Nazione", 2),    // no event date
+        )
+        val groups = com.transportguide.app.logic.DisruptionSummary.summarise(items, today, java.time.ZoneOffset.UTC)
+        assertEquals(2, groups.size)
+        val dec4 = groups.first()
+        assertEquals(java.time.LocalDate.of(2026, 12, 4), dec4.eventDate)
+        assertEquals(listOf("ANSA", "Corriere della Sera"), dec4.sources.map { it.source })
+        assertEquals(4, dec4.reportCount)
+        assertEquals(null, groups[1].eventDate)
+        assertEquals(java.time.LocalDate.of(2026, 11, 24), groups[1].reportedDate)
+    }
+
+    @Test fun eventDatesInSeveralLanguages() {
+        val today = java.time.LocalDate.of(2026, 11, 26)
+        val s = com.transportguide.app.logic.DisruptionSummary
+        assertEquals(java.time.LocalDate.of(2026, 12, 10), s.eventDate("Warnstreik am 10. Dezember bei der S-Bahn", today))
+        assertEquals(java.time.LocalDate.of(2026, 12, 2), s.eventDate("Rome taxi strike on December 2", today))
+        assertEquals(java.time.LocalDate.of(2027, 1, 9), s.eventDate("Sciopero 9 gennaio", today))
+        assertEquals(null, s.eventDate("Bus, orari ridotti dalle 10.30", today))
+        assertTrue(s.reliabilityOf("ANSA") > s.reliabilityOf("RomaToday"))
+        assertTrue(s.reliabilityOf("RomaToday") > s.reliabilityOf("Some Blog"))
+    }
 }
