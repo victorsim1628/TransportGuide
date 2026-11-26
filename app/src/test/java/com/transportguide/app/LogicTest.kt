@@ -158,11 +158,18 @@ class LogicTest {
     }
 
     @Test fun parsesOpenMeteoHour() {
-        val json = """{"hourly":{"time":["2026-12-02T08:00","2026-12-02T09:00"],
+        val json = """{"timezone":"Europe/Rome","hourly":{"time":["2026-12-02T08:00","2026-12-02T09:00"],
             "temperature_2m":[7.1,8.4],"apparent_temperature":[4.0,5.2],"precipitation_probability":[20,70],
             "precipitation":[0.0,1.2],"weather_code":[3,61],"wind_speed_10m":[9.0,14.5],"is_day":[1,1]}}"""
-        val w = Api.parseWeather(json, java.time.LocalDateTime.of(2026, 12, 2, 9, 30))!!
+        val rome = java.time.ZoneId.of("Europe/Rome")
+        val w = Api.parseWeather(json, java.time.ZonedDateTime.of(2026, 12, 2, 9, 30, 0, 0, rome))!!
         assertEquals(70, w.precipProbability)
         assertEquals("Light rain", w.description)
+        // Phone still on Singapore time: 16:30 SGT is 09:30 in Rome, so the 09:00 Rome hour is used.
+        val sgt = java.time.ZonedDateTime.of(2026, 12, 2, 16, 30, 0, 0, java.time.ZoneId.of("Asia/Singapore"))
+        val w2 = Api.parseWeather(json, sgt)!!
+        assertEquals(70, w2.precipProbability)
+        assertTrue(w2.timeLabel.contains("09:00"))
+        assertTrue(w2.timeLabel.contains("local time there"))
     }
 }

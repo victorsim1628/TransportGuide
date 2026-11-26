@@ -19,6 +19,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -72,18 +73,25 @@ object Api {
     }
 
     // ------------------------------------------------------------- weather
-    suspend fun weather(lat: Double, lon: Double, at: LocalDateTime): WeatherAtTrip? = runCatching {
+    suspend fun weather(lat: Double, lon: Double, at: ZonedDateTime): WeatherAtTrip? = runCatching {
         val url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon" +
             "&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation," +
             "weather_code,wind_speed_10m,is_day&timezone=auto&forecast_days=16"
         parseWeather(get(url), at)
     }.getOrNull()
 
-    /** Picks the forecast hour closest to the departure time (local time of the place). */
-    fun parseWeather(json: String, at: LocalDateTime): WeatherAtTrip? {
-        val h = JSONObject(json).getJSONObject("hourly")
+    /**
+     * Picks the forecast hour of the departure. The departure is the phone's time in the phone's
+     * time zone; Open-Meteo answers in the place's own time zone, so convert before matching
+     * (e.g. a phone still on Singapore time planning a trip in Rome).
+     */
+    fun parseWeather(json: String, at: ZonedDateTime): WeatherAtTrip? {
+        val root = JSONObject(json)
+        val h = root.getJSONObject("hourly")
         val times = h.getJSONArray("time")
-        val target = at.withMinute(0).withSecond(0).withNano(0)
+        val placeZone = runCatching { ZoneId.of(root.getString("timezone")) }.getOrDefault(at.zone)
+        val target = at.withZoneSameInstant(placeZone).toLocalDateTime()
+            .withMinute(0).withSecond(0).withNano(0)
         var idx = -1
         for (i in 0 until times.length()) {
             if (LocalDateTime.parse(times.getString(i)) == target) { idx = i; break }
@@ -91,7 +99,8 @@ object Api {
         if (idx < 0) return null // beyond the 16-day forecast range
         fun d(k: String) = h.getJSONArray(k).optDouble(idx, 0.0)
         return WeatherAtTrip(
-            timeLabel = target.format(DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.UK)),
+            timeLabel = target.format(DateTimeFormatter.ofPattern("EEE d MMM, HH:00", Locale.UK)) +
+                if (placeZone.rules.getOffset(at.toInstant()) != at.offset) " (local time there)" else "",
             temperatureC = d("temperature_2m"),
             apparentC = d("apparent_temperature"),
             precipProbability = d("precipitation_probability").roundToInt(),

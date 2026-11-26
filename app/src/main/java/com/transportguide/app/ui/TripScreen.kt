@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -22,6 +23,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddLocationAlt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.EditCalendar
+import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
@@ -31,6 +35,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -46,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +60,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -76,8 +84,49 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripScreen(vm: TripViewModel = viewModel()) {
+    val base = LocalDensity.current
+    // The chosen text size multiplies the phone's own font-size setting.
+    CompositionLocalProvider(LocalDensity provides Density(base.density, base.fontScale * vm.textScale)) {
+        TripContent(vm)
+    }
+}
+
+private val TEXT_SIZES = listOf("Small" to 0.85f, "Normal" to 1.0f, "Large" to 1.15f, "Extra large" to 1.3f)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TripContent(vm: TripViewModel) {
     val ctx = LocalContext.current
-    Scaffold(topBar = { TopAppBar(title = { Text("Transport Guide · Europe 2026") }) }) { pad ->
+    var sizeMenu by remember { mutableStateOf(false) }
+    Scaffold(topBar = {
+        TopAppBar(
+            title = {
+                Column {
+                    Text("Transport Guide", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Europe 2026", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                }
+            },
+            actions = {
+                Box {
+                    IconButton(onClick = { sizeMenu = true }) { Icon(Icons.Filled.FormatSize, "Text size") }
+                    DropdownMenu(expanded = sizeMenu, onDismissRequest = { sizeMenu = false }) {
+                        Text("Text size", style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                        TEXT_SIZES.forEach { (label, scale) ->
+                            DropdownMenuItem(
+                                text = { Text(label, fontSize = MaterialTheme.typography.bodyLarge.fontSize * scale) },
+                                leadingIcon = {
+                                    if (vm.textScale == scale) Icon(Icons.Filled.Check, null)
+                                    else Spacer(Modifier.size(24.dp))
+                                },
+                                onClick = { vm.chooseTextScale(scale); sizeMenu = false },
+                            )
+                        }
+                    }
+                }
+            },
+        )
+    }) { pad ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(pad),
             contentPadding = PaddingValues(16.dp),
@@ -94,7 +143,7 @@ fun TripScreen(vm: TripViewModel = viewModel()) {
             item {
                 Button(
                     onClick = vm::plan, enabled = vm.from != null && vm.to != null && !vm.loading,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                 ) {
                     if (vm.loading) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                     else Text("Find best route · check weather & strikes")
@@ -178,18 +227,26 @@ private fun icon(c: Category) = when (c) {
 private fun DepartureRow(vm: TripViewModel) {
     val ctx = LocalContext.current
     val t = vm.departure
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(Icons.Filled.Schedule, null)
-        Text(t.format(DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.UK)), fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.weight(1f))
-        TextButton(onClick = { vm.chooseDeparture(java.time.LocalDateTime.now().plusMinutes(15)) }) { Text("Now") }
-        OutlinedButton(onClick = {
+    val live = vm.customDeparture == null
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(Icons.Filled.Schedule, null, tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (live) "Leaving now" else "Planned departure",
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline,
+            )
+            Text(t.format(DateTimeFormatter.ofPattern("EEE d MMM, HH:mm", Locale.UK)), fontWeight = FontWeight.SemiBold)
+        }
+        IconButton(onClick = {
             DatePickerDialog(ctx, { _, y, m, d ->
                 TimePickerDialog(ctx, { _, h, min ->
                     vm.chooseDeparture(java.time.LocalDateTime.of(y, m + 1, d, h, min))
                 }, t.hour, t.minute, true).show()
-            }, t.year, t.monthValue - 1, t.dayOfMonth).show()
-        }) { Text("Change") }
+            }, t.year, t.monthValue - 1, t.dayOfMonth).apply {
+                // Way back to the live system clock (replaces the old "Now" button).
+                setButton(android.content.DialogInterface.BUTTON_NEUTRAL, "Leave now") { _, _ -> vm.useCurrentTime() }
+            }.show()
+        }) { Icon(Icons.Filled.EditCalendar, "Change departure time", tint = MaterialTheme.colorScheme.primary) }
     }
 }
 

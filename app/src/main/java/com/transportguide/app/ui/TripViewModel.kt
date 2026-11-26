@@ -19,8 +19,10 @@ import com.transportguide.app.logic.WeatherAdvice
 import com.transportguide.app.logic.WeatherAtTrip
 import com.transportguide.app.net.Api
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 data class TripResult(
     val from: Place,
@@ -42,7 +44,24 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
 
     var from by mutableStateOf<Place?>(TripData.byId("h_rome")); private set
     var to by mutableStateOf<Place?>(TripData.byId("x_colosseum")); private set
-    var departure by mutableStateOf(LocalDateTime.now().plusMinutes(15)); private set
+    /** The system clock, refreshed at the start of every minute. */
+    var now by mutableStateOf(LocalDateTime.now()); private set
+    /** Set only when the user picks another date/time; null means "leave now". */
+    var customDeparture by mutableStateOf<LocalDateTime?>(null); private set
+    val departure: LocalDateTime get() = customDeparture ?: now
+
+    private val uiPrefs = app.getSharedPreferences("ui", android.content.Context.MODE_PRIVATE)
+    /** Text size multiplier on top of the phone's own font size setting. */
+    var textScale by mutableStateOf(uiPrefs.getFloat("text_scale", 1.0f)); private set
+
+    init {
+        viewModelScope.launch {
+            while (true) {
+                now = LocalDateTime.now()
+                delay(60_000L - (System.currentTimeMillis() % 60_000L))
+            }
+        }
+    }
 
     var loading by mutableStateOf(false); private set
     var result by mutableStateOf<TripResult?>(null); private set
@@ -54,16 +73,24 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
     fun chooseFrom(p: Place) { from = p; result = null }
     fun chooseTo(p: Place) { to = p; result = null }
     fun swap() { val f = from; from = to; to = f; result = null }
-    fun chooseDeparture(t: LocalDateTime) { departure = t; result = null }
+    fun chooseDeparture(t: LocalDateTime) { customDeparture = t; result = null }
+    fun useCurrentTime() { customDeparture = null; now = LocalDateTime.now(); result = null }
+
+    fun chooseTextScale(scale: Float) {
+        textScale = scale
+        uiPrefs.edit().putFloat("text_scale", scale).apply()
+    }
 
     fun plan() {
         val f = from ?: return
         val t = to ?: return
         loading = true
+        now = LocalDateTime.now()
+        val leaving = departure.atZone(ZoneId.systemDefault())
         viewModelScope.launch {
             val walk = async { Api.route("foot", f.lat, f.lon, t.lat, t.lon) }
             val car = async { Api.route("car", f.lat, f.lon, t.lat, t.lon) }
-            val weather = async { Api.weather(f.lat, f.lon, departure) }
+            val weather = async { Api.weather(f.lat, f.lon, leaving) }
             val cities = listOf(f.city, t.city).filter { it != City.OTHER }.distinct()
             val news = cities.associateWith { c -> async { Api.disruptions(c) } }
             val curated = TripData.curated[t.city].orEmpty()
@@ -83,7 +110,7 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
                 weather = w,
                 weatherAdvice = w?.let { WeatherAdvice.advise(it, walkKm) }.orEmpty(),
                 weatherMissingReason = if (w == null) {
-                    if (departure.isAfter(LocalDateTime.now().plusDays(15)))
+                    if (leaving.toLocalDateTime().isAfter(LocalDateTime.now().plusDays(15)))
                         "Forecast is available up to 16 days ahead — check again closer to the date."
                     else "Weather service not reachable — check your connection and try again."
                 } else null,
