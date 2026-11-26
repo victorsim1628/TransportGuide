@@ -107,7 +107,8 @@ class LogicTest {
         val after = Planner.plan(p("h_rome"), p("s_roma_termini"), walk, car, rainy, listOf(strike))
         assertEquals(Mode.TAXI, before.first { it.best }.mode)
         assertTrue(after.first { it.best }.mode != Mode.TAXI)
-        assertTrue(after.first { it.mode == Mode.TAXI }.warnings.any { "sciopero" in it })
+        assertEquals(listOf("⚠️ Strike on your visit day: taxis may be hard to find."),
+            after.first { it.mode == Mode.TAXI }.warnings)
     }
 
     @Test fun classifierRecognisesModesAndDates() {
@@ -257,5 +258,19 @@ class LogicTest {
         assertEquals(null, s.eventDate("Bus, orari ridotti dalle 10.30", today))
         assertTrue(s.reliabilityOf("ANSA") > s.reliabilityOf("RomaToday"))
         assertTrue(s.reliabilityOf("RomaToday") > s.reliabilityOf("Some Blog"))
+    }
+    @Test fun strikeCardOnlyCoversVisitDayAndTwoDaysAfter() {
+        val visit = java.time.LocalDate.of(2026, 12, 1)
+        fun d(title: String) = Disruption(title, "ANSA", "https://x", 0, setOf(Mode.TRAIN), Severity.WARNING, false)
+        val groups = com.transportguide.app.logic.DisruptionSummary.summarise(listOf(
+            d("Sciopero dei mezzi il 1 dicembre"),          // visit day
+            d("Corteo a Roma il 3 dicembre"),               // 2 days later: kept
+            d("Manifestazione unitaria a Roma il 5 dicembre"), // 4 days later: dropped
+            d("Sciopero nazionale dei taxi del 15 dicembre"),  // dropped
+            d("Processione del 25 aprile a Roma"),          // dropped
+            d("Tram, servizio ridotto per lavori"),          // no date: dropped
+        ), visit)
+        val shown = com.transportguide.app.logic.DisruptionSummary.forVisit(groups, visit)
+        assertEquals(listOf(java.time.LocalDate.of(2026, 12, 1), java.time.LocalDate.of(2026, 12, 3)), shown.map { it.eventDate })
     }
 }

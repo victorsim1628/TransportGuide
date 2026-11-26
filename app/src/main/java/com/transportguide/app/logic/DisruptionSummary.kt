@@ -110,4 +110,17 @@ object DisruptionSummary {
                     .thenByDescending { it.severity.ordinal }
                     .thenByDescending { it.reportedDate })
     }
+
+    /** Days after the visit date that the strike card also covers. */
+    const val DAYS_AFTER_VISIT = 2
+
+    /**
+     * Only events dated on the visit day or up to [DAYS_AFTER_VISIT] days later.
+     * News that names no date is left out, since it cannot be tied to the visit.
+     */
+    fun forVisit(groups: List<DisruptionGroup>, visit: LocalDate): List<DisruptionGroup> =
+        groups.filter { g ->
+            val d = g.eventDate ?: return@filter false
+            !d.isBefore(visit) && !d.isAfter(visit.plusDays(DAYS_AFTER_VISIT.toLong()))
+        }.sortedBy { it.eventDate }
 }

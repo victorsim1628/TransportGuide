@@ -76,6 +76,7 @@ import com.transportguide.app.data.City
 import com.transportguide.app.data.Place
 import com.transportguide.app.data.Suggestion
 import com.transportguide.app.logic.DisruptionGroup
+import com.transportguide.app.logic.DisruptionSummary
 import com.transportguide.app.logic.Geo
 import com.transportguide.app.logic.MapsLinks
 import com.transportguide.app.logic.Mode
@@ -154,7 +155,7 @@ private fun TripContent(vm: TripViewModel) {
             }
             vm.result?.let { r ->
                 item { WeatherCard(r) }
-                item { DisruptionCard(r.disruptions, ctx) }
+                item { DisruptionCard(r.disruptions, r.visitDate, ctx) }
                 item { SectionTitle("Routes: ${r.from.name} → ${r.to.name}") }
                 r.options.forEach { opt -> item { RouteCard(opt, r.from, r.to, ctx) } }
                 item { SuggestionsCard(r.to, r.curated, r.nearby, ctx) }
@@ -277,21 +278,24 @@ private fun WeatherCard(r: TripResult) {
 }
 
 @Composable
-private fun DisruptionCard(byCity: Map<City, List<DisruptionGroup>>, ctx: Context) {
-    val anyWarn = byCity.values.flatten().any { it.severity == Severity.WARNING }
+private fun DisruptionCard(byCity: Map<City, List<DisruptionGroup>>, visit: java.time.LocalDate, ctx: Context) {
+    val anyWarn = byCity.values.flatten().any { it.eventDate == visit }
     val dayFmt = DateTimeFormatter.ofPattern("EEE d MMM", Locale.UK)
     Card(colors = CardDefaults.cardColors(
         containerColor = if (anyWarn) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            SectionTitle("Strikes & protests")
-            Text("One line per day, from the two most reliable sources (news of the last 14 days).",
+            val last = visit.plusDays(DisruptionSummary.DAYS_AFTER_VISIT.toLong())
+            SectionTitle("Strikes & protests · ${visit.format(dayFmt)} – ${last.format(dayFmt)}")
+            Text("Your visit day and the 2 days after. One line per day, from the two most reliable sources.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
             byCity.forEach { (city, groups) ->
                 Text(city.label, fontWeight = FontWeight.SemiBold)
-                if (groups.isEmpty()) Text("✅ No upcoming strike or protest news affecting transport.", style = MaterialTheme.typography.bodySmall)
+                if (groups.isEmpty()) Text("✅ No strikes or protests reported for these dates.", style = MaterialTheme.typography.bodySmall)
                 groups.forEach { g ->
-                    val badge = when { g.mentionsTripDate -> "🔴 ON YOUR DATES"; g.severity == Severity.WARNING -> "🟠 Strike"; else -> "🟡 Watch" }
-                    val day = g.eventDate?.format(dayFmt) ?: g.reportedDate?.let { "Reported ${it.format(dayFmt)}" } ?: "Date unknown"
+                    val onVisitDay = g.eventDate == visit
+                    val kind = if (g.severity == Severity.WARNING) "Strike" else "Protest"
+                    val badge = if (onVisitDay) "🔴 $kind on your visit day" else "🟠 $kind"
+                    val day = g.eventDate?.format(dayFmt).orEmpty()
                     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Text("$badge · $day", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                         Text(g.headline.title, style = MaterialTheme.typography.bodyMedium)

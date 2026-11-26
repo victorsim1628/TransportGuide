@@ -12,8 +12,12 @@ android {
         applicationId = "com.transportguide.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.7"
+
+        // Only the 64-bit ARM build of the translation engine (every phone since about 2017);
+        // the armv7/x86 copies added ~46 MB.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     // A fixed debug key (standard "android" passwords, not a secret) so every build, here or on

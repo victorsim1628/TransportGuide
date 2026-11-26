@@ -166,20 +166,24 @@ object Planner {
     }
 
     // ---------------------------------------------------------------- helpers
+    /**
+     * [d] holds only events on the visit day (the caller filters by date). Each affected mode
+     * gets one short warning line, not the news headlines.
+     */
     private fun applyDisruptions(mode: Mode, d: List<Disruption>, warns: MutableList<String>): Double {
-        var penalty = 0.0
-        d.filter { mode in it.modes }.forEach {
-            val p = when {
-                it.severity == Severity.WARNING && it.mentionsTripDate -> 80.0
-                it.severity == Severity.WARNING -> 25.0
-                it.mentionsTripDate -> 20.0
-                else -> 5.0
-            }
-            penalty += p
-        }
-        val top = d.filter { mode in it.modes }.sortedByDescending { it.severity.ordinal * 2 + if (it.mentionsTripDate) 1 else 0 }
-        top.take(2).forEach { warns += "⚠️ ${it.title}" }
-        return penalty.coerceAtMost(120.0)
+        val hits = d.filter { mode in it.modes }
+        if (hits.isEmpty()) return 0.0
+        val strike = hits.any { it.severity == Severity.WARNING }
+        warns += if (strike) "⚠️ Strike on your visit day: ${impact(mode, true)}"
+        else "⚠️ Protest or disruption on your visit day: ${impact(mode, false)}"
+        return if (strike) 80.0 else 20.0
+    }
+
+    private fun impact(mode: Mode, strike: Boolean) = when (mode) {
+        Mode.TRAIN -> if (strike) "trains, metro and buses may not run." else "trains, metro and buses may be delayed or diverted."
+        Mode.TAXI -> if (strike) "taxis may be hard to find." else "roads may be closed or congested."
+        Mode.WALK -> "some streets and squares may be closed."
+        Mode.WATER_TAXI -> if (strike) "vaporetti may not run; private water-taxis usually do." else "boat services may be disrupted."
     }
 
     private fun isPeopleMoverPair(from: Place, to: Place): Boolean {

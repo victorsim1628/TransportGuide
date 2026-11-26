@@ -35,6 +35,8 @@ data class TripResult(
     val weatherAdvice: List<String>,
     val weatherMissingReason: String?,
     val disruptions: Map<City, List<DisruptionGroup>>,
+    /** Date of the trip; the strike card covers this day and the next two. */
+    val visitDate: LocalDate,
     val curated: List<Suggestion>,
     val nearby: List<Suggestion>,
 )
@@ -106,9 +108,10 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
             val w = weather.await()
             // One entry per event/day with its two most reliable sources; only those are
             // translated to British English (on the phone) and shown.
-            val today = LocalDate.now()
+            val visit = leaving.toLocalDate()
             val disruptions = news.mapValues { (_, d) ->
-                val groups = DisruptionSummary.summarise(d.await(), today).take(MAX_EVENTS_PER_CITY)
+                val groups = DisruptionSummary.forVisit(DisruptionSummary.summarise(d.await(), visit), visit)
+                    .take(MAX_EVENTS_PER_CITY)
                 val translated = Translator.translate(groups.flatMap { it.sources })
                     .associateBy { it.originalTitle ?: it.title }
                 groups.map { g ->
@@ -118,8 +121,9 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
             }
             val walkRoute = walk.await()
             // The planner sees each upcoming event once, not every article about it.
-            val events = disruptions.values.flatten().map {
-                it.headline.copy(modes = it.modes, severity = it.severity, mentionsTripDate = it.mentionsTripDate)
+            // Route warnings only for events on the visit day itself.
+            val events = disruptions.values.flatten().filter { it.eventDate == visit }.map {
+                it.headline.copy(modes = it.modes, severity = it.severity, mentionsTripDate = true)
             }
             val options = Planner.plan(f, t, walkRoute, car.await(), w, events)
             val walkKm = options.firstOrNull { it.mode == com.transportguide.app.logic.Mode.WALK }?.km
@@ -135,6 +139,7 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
                     else "Weather service not reachable — check your connection and try again."
                 } else null,
                 disruptions = disruptions,
+                visitDate = leaving.toLocalDate(),
                 curated = curated,
                 nearby = nearby.await().filter { s -> curatedNames.none { it in s.title.lowercase() || s.title.lowercase() in it } },
             )
