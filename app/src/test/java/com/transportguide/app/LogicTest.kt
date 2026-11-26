@@ -194,13 +194,13 @@ class LogicTest {
     @Test fun suggestionOpensDirectionsFromDestination() {
         val pantheon = p("x_pantheon")
         val navona = com.transportguide.app.logic.MapsLinks.toSuggestion(pantheon.lat, pantheon.lon, 41.8992, 12.4731)
-        assertEquals("https://www.google.com/maps/dir/?api=1&origin=41.898600,12.476900" +
-            "&destination=41.899200,12.473100&travelmode=walking", navona)
+        assertEquals("https://maps.google.com/maps?saddr=41.898600,12.476900" +
+            "&daddr=41.899200,12.473100&dirflg=w", navona)
         // St Peter's is 1.9 km from the Pantheon (walk) but about 3.3 km from the Colosseum (public transport).
         assertTrue(com.transportguide.app.logic.MapsLinks.toSuggestion(pantheon.lat, pantheon.lon, 41.9022, 12.4539)
-            .endsWith("&travelmode=walking"))
+            .endsWith("&dirflg=w"))
         val colosseum = p("x_colosseum")
         assertTrue(com.transportguide.app.logic.MapsLinks.toSuggestion(colosseum.lat, colosseum.lon, 41.9022, 12.4539)
-            .endsWith("&travelmode=transit"))
+            .endsWith("&dirflg=r"))
     }
 }

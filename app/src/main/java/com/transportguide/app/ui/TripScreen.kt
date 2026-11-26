@@ -454,7 +454,13 @@ private fun MyPlacesCard(vm: TripViewModel) {
 // ------------------------------------------------------------------ helpers
 
 private fun open(ctx: Context, url: String) {
-    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    // Directions go straight to the Google Maps app; without it, fall back to the browser.
+    if (url.startsWith("https://maps.google.com/")) {
+        val viaApp = runCatching { ctx.startActivity(Intent(intent).setPackage("com.google.android.apps.maps")) }
+        if (viaApp.isSuccess) return
+    }
+    runCatching { ctx.startActivity(intent) }
 }
 
 private fun openMaps(ctx: Context, from: Place, to: Place, mode: Mode) {
