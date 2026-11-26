@@ -94,7 +94,7 @@ class TripViewModel(app: Application) : AndroidViewModel(app) {
             val weather = async { Api.weather(f.lat, f.lon, leaving) }
             val cities = listOf(f.city, t.city).filter { it != City.OTHER }.distinct()
             val news = cities.associateWith { c -> async { Api.disruptions(c) } }
-            val curated = TripData.curated[t.city].orEmpty()
+            val curated = TripData.curatedFor(t.city)
                 .map { it.copy(distanceKm = Geo.haversineKm(t.lat, t.lon, it.lat, it.lon)) }
                 .sortedBy { it.distanceKm }
             val nearby = async { Api.nearbyLandmarks(t.lat, t.lon) }

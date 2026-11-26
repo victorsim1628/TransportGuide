@@ -30,6 +30,18 @@ data class Place(
     val address: String = "",
     /** Booking or ticket details copied from the trip spreadsheet. */
     val note: String = "",
+    /** Clean name Google Maps recognises, when [name] is too descriptive to search for. */
+    val mapsName: String? = null,
 ) {
     val display: String get() = "$name · ${city.label}"
+
+    /**
+     * What to send to Google Maps: a searchable name for well-known places (so Maps shows
+     * "Pantheon" rather than the nearest business), or null to use exact coordinates.
+     */
+    fun mapsQuery(): String? = when (category) {
+        Category.CUSTOM -> null
+        Category.HOTEL -> "$name, $address"
+        else -> mapsName ?: "$name, ${city.label}"
+    }
 }

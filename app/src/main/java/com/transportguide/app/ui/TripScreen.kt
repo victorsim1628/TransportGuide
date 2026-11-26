@@ -374,7 +374,7 @@ private fun SuggestionRow(s: Suggestion, from: Place, ctx: Context) {
     // Plain clickable row (a pill-shaped TextButton clipped letters). Tap = directions from the Destination Point.
     Row(
         Modifier.fillMaxWidth()
-            .clickable { open(ctx, MapsLinks.toSuggestion(from.lat, from.lon, s.lat, s.lon)) }
+            .clickable { open(ctx, MapsLinks.toSuggestion(from.lat, from.lon, s.lat, s.lon, from.mapsQuery(), s.mapsName)) }
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -464,7 +464,7 @@ private fun open(ctx: Context, url: String) {
 }
 
 private fun openMaps(ctx: Context, from: Place, to: Place, mode: Mode) {
-    open(ctx, MapsLinks.directions(from.lat, from.lon, to.lat, to.lon, MapsLinks.modeFor(mode)))
+    open(ctx, MapsLinks.directions(from.lat, from.lon, to.lat, to.lon, MapsLinks.modeFor(mode), from.mapsQuery(), to.mapsQuery()))
 }
 
 private fun ago(ms: Long): String {

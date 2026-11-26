@@ -193,14 +193,36 @@ class LogicTest {
 
     @Test fun suggestionOpensDirectionsFromDestination() {
         val pantheon = p("x_pantheon")
-        val navona = com.transportguide.app.logic.MapsLinks.toSuggestion(pantheon.lat, pantheon.lon, 41.8992, 12.4731)
-        assertEquals("https://maps.google.com/maps?saddr=41.898600,12.476900" +
-            "&daddr=41.899200,12.473100&dirflg=w", navona)
+        val navona = TripData.curatedFor(City.ROME).first { it.title == "Piazza Navona" }
+        // Well-known places go by name, so Maps shows "Pantheon", not the nearest apartment.
+        assertEquals("https://maps.google.com/maps?saddr=Pantheon%2C+Rome" +
+            "&daddr=Piazza+Navona%2C+Rome&dirflg=w",
+            com.transportguide.app.logic.MapsLinks.toSuggestion(pantheon.lat, pantheon.lon, navona.lat, navona.lon,
+                pantheon.mapsQuery(), navona.mapsName))
+        // Wikipedia landmarks (no maps name) keep exact coordinates.
+        assertEquals("https://maps.google.com/maps?saddr=Pantheon%2C+Rome" +
+            "&daddr=41.899200,12.473100&dirflg=w",
+            com.transportguide.app.logic.MapsLinks.toSuggestion(pantheon.lat, pantheon.lon, 41.8992, 12.4731,
+                pantheon.mapsQuery(), null))
         // St Peter's is 1.9 km from the Pantheon (walk) but about 3.3 km from the Colosseum (public transport).
         assertTrue(com.transportguide.app.logic.MapsLinks.toSuggestion(pantheon.lat, pantheon.lon, 41.9022, 12.4539)
             .endsWith("&dirflg=w"))
         val colosseum = p("x_colosseum")
         assertTrue(com.transportguide.app.logic.MapsLinks.toSuggestion(colosseum.lat, colosseum.lon, 41.9022, 12.4539)
             .endsWith("&dirflg=r"))
+    }
+
+    @Test fun mapsNamesForWellKnownPlacesOnly() {
+        assertEquals("Colosseum, Rome", p("x_colosseum").mapsQuery())
+        assertEquals("Little Queen Suite, Via Florida, 20, Rome, Lazio, 00186", p("h_rome").mapsQuery())
+        assertEquals("Firenze Santa Maria Novella station, Florence", p("s_firenze_smn").mapsQuery())
+        val mine = com.transportguide.app.data.Place("c_1", "Gelateria", City.ROME,
+            com.transportguide.app.data.Category.CUSTOM, 41.9, 12.48)
+        assertEquals(null, mine.mapsQuery())
+        assertEquals("Piazza della Signoria, Florence",
+            TripData.curatedFor(City.FLORENCE).first { it.title.startsWith("Piazza della Signoria") }.mapsName)
+        // Every spreadsheet and curated place has a name to send.
+        TripData.places.forEach { assertNotNull(it.name, it.mapsQuery()) }
+        City.entries.forEach { c -> TripData.curatedFor(c).forEach { assertNotNull(it.mapsName) } }
     }
 }
