@@ -106,7 +106,7 @@ private fun TripContent(vm: TripViewModel) {
         TopAppBar(
             title = {
                 Column {
-                    Text("Transport Guide", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("Andiamo", maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("Europe 2026", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
                 }
             },

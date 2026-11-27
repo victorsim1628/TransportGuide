@@ -29,18 +29,18 @@ jobs:
           chmod +x gradlew
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           ./gradlew --no-daemon assembleDebug testDebugUnitTest
-          cp app/build/outputs/apk/debug/app-debug.apk TransportGuide-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk Andiamo.apk
 
       - name: Create or update the Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          NOTES="Transport Guide for the Europe 2026 trip. Android 8.0+.
-          Install: download TransportGuide-debug.apk on your phone, open it and allow 'Install unknown apps'."
+          NOTES="Andiamo, the travel guide for the Europe 2026 trip. Android 8.0+.
+          Install: download Andiamo.apk on your phone, open it and allow 'Install unknown apps'."
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" TransportGuide-debug.apk --clobber
+            gh release upload "$TAG" Andiamo.apk --clobber
           else
-            gh release create "$TAG" TransportGuide-debug.apk \
-              --target "$GITHUB_SHA" --title "Transport Guide $TAG" --notes "$NOTES"
+            gh release create "$TAG" Andiamo.apk \
+              --target "$GITHUB_SHA" --title "Andiamo $TAG" --notes "$NOTES"
           fi

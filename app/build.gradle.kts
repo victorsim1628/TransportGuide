@@ -12,8 +12,8 @@ android {
         applicationId = "com.transportguide.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.0.7"
+        versionCode = 9
+        versionName = "1.1.0"
 
         // Only the 64-bit ARM build of the translation engine (every phone since about 2017);
         // the armv7/x86 copies added ~46 MB.

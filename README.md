@@ -1,4 +1,4 @@
-# Transport Guide — Europe Trip 2026 (Android)
+# Andiamo — Europe Trip 2026 travel guide (Android)
 
 An Android app (Kotlin + Jetpack Compose) for getting around Rome, Florence/Pisa,
 Venice, Milan and Frankfurt/Heidelberg, 29 Nov – 12 Dec 2026. All hotels,
